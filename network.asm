@@ -16,28 +16,25 @@ endstruc
 
 section .data
 
-in_addr:
-    istruc inaddr
-        at s_addr, dd   0x00
-    iend
 
-sock_addr:
-    istruc sockaddr
-        at sin_family,	dw	0x02
-	    at sin_port,	dw	0x5000
-	    at sin_addr,	dd	0x00
-        at padding,     db  0X0000000000000000
-    iend
-    
+    sock_addr:
+        istruc sockaddr
+            at sin_family,	dw	0x02
+            at sin_port,	dw	0x3500
+            at sin_addr,	dd	0x33b6a8c0
+            at padding,     dq  0X0000000000000000
+        iend
+        
     sock_addr_size EQU $ - sock_addr
 
 
-
-    response db `HTTP/1.0 200 OK\r\n\r\n`
-    response_length EQU $ - response
-
-    short_message db `Hello World!`
+    short_message db 0xc6,0x9f,0x01,0x00,0x00,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x77,0x69,0x6b,0x69,0x70,0x65,0x64,0x69,0x61,0x03,0x6f,0x72,0x67,0x00,0x00,0x01,0x00,0x01
     short_message_length EQU $ - short_message
+
+    time_wait dd 0x00000001
+              dd 0x00000000
+
+
 
 
 section .bss
@@ -45,11 +42,17 @@ section .bss
     request_content: resb 500
     request_content_size EQU $ - request_content
 
-    file_content: resb 500
-    file_content_size EQU $ - file_content
 
-    filename: resb 20
-    filename_length EQU $ - filename
+    time_left: resb 8
+
+    pipe_fd: resb 4
+             resb 4
+
+
+    recvfrom_src_addr: resw 1
+                       resb 14
+                       
+    recvfrom_src_addr_size EQU $ - recvfrom_src_addr
 
 section .text
 
@@ -59,39 +62,54 @@ _start:
     mov rbp, rsp
     sub rsp, 0x40
     
-    mov rdi, 0x2
-    mov rsi, 0x1
-    mov rdx, 0x0
-    mov rax, 0x29
+    mov rdi, 0x2 ; AF_INET
+    mov rsi, 0x2 ; SOCK_DGRAM
+    mov rdx, 0x0 ; IPPROTO_IP
+    mov rax, 0x29 
     syscall ; creates the socket
     mov [rbp - 0x08], rax ; save the socket fd in the stack
 
-    mov rdi,rax
-    mov rsi, sock_addr
-    mov rdx, sock_addr_size
-    mov rax, 0x31
-    syscall ; bind the socket with an address and a port 
 
 
-    mov rdi, [rbp - 0x08]
-    mov rsi, sock_addr
-    mov rdx, sock_addr_size
-    mov rax, 0x2a
-    syscall ; connect to remote computer
+    mov rdi, [rbp - 0x08] ; socket fd
+    mov rsi, short_message ; message
+    mov rdx, short_message_length ; message length
+    mov r10, 0x0 ; flags
+    mov r8, sock_addr ; sockaddr
+    mov r9, sock_addr_size ; sockaddr size
+    mov rax, 0x2c
+    syscall ; udp sendto
 
-    mov rdi, [rbp - 0x08]
-    mov rsi, short_message
-    mov rdx, short_message_length
-    mov rax, 0x1
-    syscall ; send the short message
+
+    mov rdi, [rbp - 0x08] ; socket fd
+    mov rsi, request_content ; buffer
+    mov rdx, request_content_size ; buffer size
+    mov r10, 0x0 ; flags
+    mov r8, 0x00 ; sockaddr
+    mov r9, 0x00 ; sockaddr size
+    mov rax, 0x2d
+    syscall ; udp recvfrom
+
+    mov [rbp - 0x10], rax ; save the number of bytes received in the stack
+
+    mov rdi, 0x01 ; stdout
+    mov rsi, request_content ; buffer
+    mov rdx, [rbp - 0x10] ; buffer size
+    mov rax, 0x01
+    syscall ; write the received data to stdout
+
     
-    mov rdi, [rbp - 0x08]
+    mov rdi, [rbp - 0x08] ; socket fd
     mov rax, 0x3
-    syscall ; close the connection
+    syscall ; close the socket
 
 
 
-    mov rdi, 0
+    mov rdi, 0 ; exit code
     mov rax, 60
     syscall ; exit
+
+
+
+
 
