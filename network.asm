@@ -21,7 +21,7 @@ section .data
         istruc sockaddr
             at sin_family,	dw	0x02
             at sin_port,	dw	0x3500
-            at sin_addr,	dd	0x33b6a8c0
+            at sin_addr,	dd	0x1a01a8c0
             at padding,     dq  0X0000000000000000
         iend
         
@@ -51,9 +51,6 @@ section .bss
 
     time_left: resb 8
 
-    pipe_fd: resb 4
-             resb 4
-
 
     recvfrom_src_addr: resw 1
                        resb 14
@@ -61,6 +58,8 @@ section .bss
     recvfrom_src_addr_size EQU $ - recvfrom_src_addr
 
     dns_ID: resw 1
+
+    target_ip: resb 16
 
 section .text
 
@@ -92,6 +91,7 @@ _start:
 
 
     call write_dns_request ; write the dns request to the request content buffer
+    mov [rbp - 0x10], rax ; save the request content size in the stack
 
     
     mov rdi, [rbp - 0x08] ; socket fd
@@ -131,11 +131,18 @@ _start:
 
 next:
 
-    mov [rbp - 0x10], rax ; save the number of bytes received in the stack
+
+
+
+    
+    mov rdi, request_content ; buffer
+    mov rsi, target_ip ; buffer
+    mov rdx, [rbp - 0x10] ; buffer size
+    call parse_answer ; parse the answer
 
     mov rdi, 0x01 ; stdout
-    mov rsi, request_content ; buffer
-    mov rdx, [rbp - 0x10] ; buffer size
+    mov rsi, target_ip ; buffer
+    mov rdx, 0x10 ; buffer size
     mov rax, 0x01
     syscall ; write the received data to stdout
 
@@ -250,7 +257,7 @@ write_dns_request:
 
 
     
-    mov rax, 0x0100 ; DNS QTYPE
+    mov rax, 0x1c00 ; DNS QTYPE
     mov [request_content + rcx], ax
     add rcx, 2
 
@@ -262,3 +269,39 @@ write_dns_request:
     
     leave
     ret
+
+
+parse_answer:
+
+
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x40
+
+    xor rcx, rcx
+    mov rax, rdx
+    add rax, 0x0c ; skip the dns header
+    mov r9b, byte [dns_ID] ; get the first byte of the message
+    mov r10b, byte [dns_ID+1] ; get the second byte of the message
+
+    parse_answer_loop:
+
+        mov r8b , byte [rdi+rax] ; get the first byte of the message
+        xor r8b, r10b
+        xor r8b, r9b
+
+        xor r9b, r10b
+        xor r10b, r9b
+
+        mov [rsi+rcx], r8b
+
+        inc rax
+        inc rcx
+        cmp rcx, 0x10
+        jl parse_answer_loop
+
+    leave
+    ret
+
+
+    
