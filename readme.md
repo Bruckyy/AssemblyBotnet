@@ -11,8 +11,7 @@ Simple assembly DDoS linux implant that communicate over DNS to a C2 and receive
 - Communication with C2 via DNS
 
 ## Persistency
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Copy himself in `/home/$USER/.ssh` and add auto-execution in `.bashrc` of the user who execute the file  
 
 ## Anti-debugging
 
