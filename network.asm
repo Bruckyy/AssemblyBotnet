@@ -98,11 +98,17 @@ _start:
     mov rax, 0x050f
     stosw
 
+    ; calling ptrace
+    mov rdi, 0x0
+    mov rsi, 0x0
+    mov rdx, 0x0
+    mov rax, 0x65
+
     systemcall:
     xor eax, ebx ; this instruction will be replaced by 'syscall' during runtime
 
     cmp rax, 0
-    jl debuggerDetected
+    ;jl debuggerDetected
 
 
  
