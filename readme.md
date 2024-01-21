@@ -15,7 +15,7 @@ Recuperation of the $HOME env in the execution of the stack for copy himself in 
 
 ## Anti-debugging
 
-Use of **ptrace** syscall, commonly used by debuggers or tracing programs to attach and probe into another program's execution state. If our program is already attached by another the syscall will fail (return -1) which tells us that our program is being debugged, so we can modify the program's behavior and do nothing malicious. On top of that the call of **ptrace** is obfuscated when looking statically at the code, the program modify itself to write the syscall opcode.
+Use of **ptrace** syscall, commonly used by debuggers or tracing programs to attach and probe into another program's execution state. If our program is already attached by another the syscall will fail (return -1) which tells us that our program is being debugged, so we can modify the program's behavior and do nothing malicious. On top of that the call of **ptrace** is obfuscated when looking statically at the code, the program modify itself to write the syscall opcode during runtime.
 
 ## DNS Communication
 
