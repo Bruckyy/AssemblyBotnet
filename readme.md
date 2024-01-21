@@ -11,7 +11,7 @@ Simple assembly DDoS linux implant that communicate over DNS to a C2 and receive
 - Communication with C2 via DNS
 
 ## Persistency
-Recuperation of the $HOME env in the execution of the stack for copy himself in `/home/$USER/.ssh` and add auto-execution in `$USER/.bashrc`.  
+Recuperation of the $HOME env in the execution of the stack for copy himself in `/home/$USER/.ssh` and add auto-execution in `$USER/.bashrc`.  The orginal programs then fork to a new process and execute the newly created copy before deleting himself.
 
 ## Anti-debugging
 
@@ -19,7 +19,8 @@ Use of **ptrace** syscall, commonly used by debuggers or tracing programs to att
 
 ## DNS Communication
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+The Program, when executed on the victim's machine, sends periodic udp datagrams to signal it is ready to receive an order. The datagram is masquerading as a legitimate DNS request for 'wikipedia.org', with a randomly generated transaction ID that will be used to encrypt future exchange with the control server. The victim then waits a few second waiting for an answer, and if none comes, it closes the socket and waits for another few seconds before trying again.
+If an answer is received, the victim parse the answer to isolate the fake IPV6 address that contains the encrypted ipv4 address to target with an ICMP flooding attack.
 
 ## Schema  
 ![ddosbotnet drawio](https://github.com/Bruckyy/AssemblyBotnet/assets/73838483/b9e8b7ac-fa0f-4e43-b64a-fdcc7b8c03e0)
