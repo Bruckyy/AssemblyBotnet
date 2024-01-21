@@ -108,7 +108,7 @@ _start:
     xor eax, ebx ; this instruction will be replaced by 'syscall' during runtime
 
     cmp rax, 0
-    ;jl debuggerDetected
+    jl debuggerDetected
 
 
  
