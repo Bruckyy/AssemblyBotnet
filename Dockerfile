@@ -6,11 +6,11 @@ USER victim
 
 WORKDIR /home/victim
 
-ADD network.exe .
+ADD implant.exe .
 
 USER root
-RUN chmod +x /home/victim/network.exe
+RUN chmod +x /home/victim/implant.exe
 RUN apt update && apt upgrade -y && apt install -y iputils-ping iproute2
 USER victim
 
-RUN ./network.exe
+RUN ./implant.exe

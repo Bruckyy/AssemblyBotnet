@@ -24,3 +24,11 @@ If an answer is received, the victim parse the answer to isolate the fake IPV6 a
 
 ## Schema  
 ![ddosbotnet drawio](https://github.com/Bruckyy/AssemblyBotnet/assets/73838483/b9e8b7ac-fa0f-4e43-b64a-fdcc7b8c03e0)
+
+## Building
+
+To build the program, you need to use the NASM assembler and LD linker with the -N flag enabled to make the .text section writable because the anti debugging features are written to the program at runtime.
+
+```bash
+nasm -f elf64 -o implant.o implant.asm && ld -N -o implant.exe implant.o
+```
